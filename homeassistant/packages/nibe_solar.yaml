@@ -1,0 +1,160 @@
+# Solar surplus — self-consume exported PV as stored heat.
+#
+# When the house exports solar surplus (net grid power goes negative), store it
+# as heat instead of exporting it cheaply:
+#   - hot water: request LUXURY (the tank is a free thermal battery)
+#   - space heat: add a boost offset, capped by a comfort ceiling
+# Forecast-gated, price-gated (export instead when the spot price is high) and
+# legionella-safe. Logic in pyscript/nibe_solar.py publishes sensors only; the
+# write package does the pump writes.
+#
+# Needs sensor.nibe_grid_power and sensor.nibe_solar_forecast_remaining mapped
+# in nibe_site.yaml. Master toggle nibe_solar_enable defaults off.
+
+input_boolean:
+  nibe_solar_enable:
+    name: Nibe solar surplus
+    icon: mdi:solar-power
+  nibe_solar_hw_enable:
+    name: Solar → hot water
+    icon: mdi:water-boiler
+    initial: true
+  nibe_solar_heat_enable:
+    name: Solar → space heat
+    icon: mdi:radiator
+    initial: true
+  nibe_solar_reserve_enable:
+    name: Reserve HW room for solar (morning)
+    icon: mdi:water-off
+  nibe_solar_price_gate_enable:
+    name: Export surplus at high price (don't store)
+    icon: mdi:transmission-tower-export
+    initial: true
+
+input_number:
+  nibe_solar_export_on:
+    name: Activate above export
+    min: 0
+    max: 6
+    step: 0.1
+    initial: 1.0
+    unit_of_measurement: "kW"
+    mode: box
+    icon: mdi:transmission-tower-export
+  nibe_solar_export_off:
+    name: Deactivate below export
+    min: 0
+    max: 6
+    step: 0.1
+    initial: 0.3
+    unit_of_measurement: "kW"
+    mode: box
+    icon: mdi:transmission-tower-export
+  nibe_solar_release_min:
+    name: Release delay (sticky, anti-flap)
+    min: 0
+    max: 120
+    step: 5
+    initial: 45
+    unit_of_measurement: "min"
+    mode: box
+    icon: mdi:timer-lock
+  nibe_solar_forecast_min:
+    name: Min sun still ahead to store
+    min: 0
+    max: 20
+    step: 0.5
+    initial: 2.0
+    unit_of_measurement: "kWh"
+    mode: box
+    icon: mdi:weather-sunny
+  nibe_solar_heat_max:
+    name: Solar heat boost
+    min: 0
+    max: 10
+    step: 1
+    initial: 4
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-plus
+  nibe_solar_comfort_ceiling:
+    name: Solar heat comfort ceiling
+    min: 0
+    max: 5
+    step: 0.5
+    initial: 1.0
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-alert
+  nibe_solar_hw_full_temp:
+    name: Stop storing when tank top (BT7) above
+    min: 30
+    max: 60
+    step: 1
+    initial: 50
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:water-thermometer
+  nibe_solar_reserve_forecast_min:
+    name: Reserve if sun ahead exceeds
+    min: 0
+    max: 40
+    step: 0.5
+    initial: 8.0
+    unit_of_measurement: "kWh"
+    mode: box
+    icon: mdi:weather-sunny
+  nibe_solar_reserve_start_hour:
+    name: Reserve window start (hour)
+    min: 0
+    max: 23
+    step: 1
+    initial: 5
+    unit_of_measurement: "h"
+    mode: box
+    icon: mdi:clock-start
+  nibe_solar_reserve_end_hour:
+    name: Reserve window end (hour)
+    min: 0
+    max: 23
+    step: 1
+    initial: 12
+    unit_of_measurement: "h"
+    mode: box
+    icon: mdi:clock-end
+  nibe_solar_reserve_floor:
+    name: Reserve HW floor (BT7 min)
+    min: 30
+    max: 55
+    step: 1
+    initial: 40
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-low
+  nibe_solar_legionella_temp:
+    name: Legionella-run detect (BT7 above)
+    min: 50
+    max: 70
+    step: 1
+    initial: 60
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:bacteria
+  nibe_solar_price_max_level:
+    name: Export above price level (1=Exp 2=V.Exp)
+    min: -2
+    max: 2
+    step: 1
+    initial: 1
+    mode: box
+    icon: mdi:cash-clock
+  nibe_solar_export_price:
+    name: Export above spot price (0=off)
+    min: 0
+    max: 5
+    step: 0.1
+    initial: 1.8
+    unit_of_measurement: "/kWh"
+    mode: box
+    icon: mdi:cash
+

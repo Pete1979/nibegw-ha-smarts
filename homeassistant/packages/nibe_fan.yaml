@@ -1,0 +1,86 @@
+# Fan / ventilation (NibePi runFan).
+# Regulates the exhaust fan speed (%) to hit a target airflow (BS1, m³/h), with
+# low / degree-minute boost / CO2 boost modes. Logic in pyscript/nibe_fan.py.
+# CO2 boost needs sensor.nibe_co2 mapped in nibe_site.yaml.
+
+input_boolean:
+  nibe_fan_enable:
+    name: Nibe fan regulation
+    icon: mdi:fan
+    initial: true
+  nibe_fan_low_enable:
+    name: Fan low mode (low compressor freq)
+    icon: mdi:fan-minus
+    initial: true
+  nibe_fan_dmboost_enable:
+    name: Fan boost on low degree minutes
+    icon: mdi:fan-plus
+    initial: true
+  nibe_fan_co2_enable:
+    name: Fan CO2 boost
+    icon: mdi:molecule-co2
+
+input_number:
+  nibe_fan_flow_normal:
+    name: Airflow normal
+    min: 50
+    max: 400
+    step: 5
+    initial: 202
+    unit_of_measurement: "m³/h"
+    mode: box
+  nibe_fan_flow_low:
+    name: Airflow low
+    min: 50
+    max: 400
+    step: 5
+    initial: 180
+    unit_of_measurement: "m³/h"
+    mode: box
+  nibe_fan_low_cpr_freq:
+    name: Low mode below compressor Hz
+    min: 10
+    max: 120
+    step: 1
+    initial: 41
+    unit_of_measurement: "Hz"
+    mode: box
+  nibe_fan_flow_dmboost:
+    name: Airflow DM boost
+    min: 50
+    max: 400
+    step: 5
+    initial: 250
+    unit_of_measurement: "m³/h"
+    mode: box
+  nibe_fan_dmboost_dm:
+    name: DM boost below degree minutes
+    min: -3000
+    max: 0
+    step: 50
+    initial: -300
+    mode: box
+  nibe_fan_flow_high:
+    name: Airflow high (CO2)
+    min: 50
+    max: 400
+    step: 5
+    initial: 300
+    unit_of_measurement: "m³/h"
+    mode: box
+  nibe_fan_co2_high:
+    name: CO2 boost above
+    min: 400
+    max: 2000
+    step: 50
+    initial: 1000
+    unit_of_measurement: "ppm"
+    mode: box
+  nibe_fan_co2_low:
+    name: CO2 boost clears below
+    min: 400
+    max: 2000
+    step: 50
+    initial: 800
+    unit_of_measurement: "ppm"
+    mode: box

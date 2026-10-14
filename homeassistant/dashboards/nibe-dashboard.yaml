@@ -1,0 +1,488 @@
+# Nibe dashboard. Create a dashboard with URL "dashboard-nibe", open its raw
+# configuration editor and paste this file. Needs HACS cards: mushroom,
+# button-card, apexcharts-card.
+views:
+- title: Home
+  cards:
+  - type: vertical-stack
+    cards:
+    - type: horizontal-stack
+      title: Temporary lux (hot water)
+      cards:
+      - type: custom:button-card
+        entity: select.temporary_lux_48132
+        name: 'Off'
+        icon: mdi:water-thermometer-outline
+        show_name: true
+        tap_action:
+          action: call-service
+          service: select.select_option
+          service_data:
+            entity_id: select.temporary_lux_48132
+            option: 'OFF'
+        hold_action:
+          action: none
+        state:
+        - value: 'OFF'
+          color: '#b58e31'
+      - type: custom:button-card
+        entity: select.temporary_lux_48132
+        name: One-time increase
+        icon: mdi:water-thermometer
+        show_name: true
+        tap_action:
+          action: call-service
+          service: select.select_option
+          service_data:
+            entity_id: select.temporary_lux_48132
+            option: ONE TIME INCREASE
+        hold_action:
+          action: none
+        state:
+        - value: ONE TIME INCREASE
+          color: '#b58e31'
+    - type: horizontal-stack
+      cards:
+      - type: custom:button-card
+        entity: select.temporary_lux_48132
+        name: 3h
+        icon: mdi:timer
+        show_name: true
+        tap_action:
+          action: call-service
+          service: select.select_option
+          service_data:
+            entity_id: select.temporary_lux_48132
+            option: 3H
+        hold_action:
+          action: none
+        state:
+        - value: 3H
+          color: '#b58e31'
+      - type: custom:button-card
+        entity: select.temporary_lux_48132
+        name: 6h
+        icon: mdi:timer
+        show_name: true
+        tap_action:
+          action: call-service
+          service: select.select_option
+          service_data:
+            entity_id: select.temporary_lux_48132
+            option: 6H
+        hold_action:
+          action: none
+        state:
+        - value: 6H
+          color: '#b58e31'
+      - type: custom:button-card
+        entity: select.temporary_lux_48132
+        name: 12h
+        icon: mdi:timer
+        show_name: true
+        tap_action:
+          action: call-service
+          service: select.select_option
+          service_data:
+            entity_id: select.temporary_lux_48132
+            option: 12H
+        hold_action:
+          action: none
+        state:
+        - value: 12H
+          color: '#b58e31'
+  - type: custom:mushroom-chips-card
+    alignment: center
+    chips:
+    - type: entity
+      entity: sensor.bt1_outdoor_temperature_40004
+      icon: mdi:thermometer
+    - type: entity
+      entity: sensor.bt7_hw_top_40013
+      icon: mdi:water-thermometer
+    - type: entity
+      entity: number.degree_minutes_16_bit_43005
+      icon: mdi:sigma
+    - type: entity
+      entity: number.exhaust_fan_speed_normal_47265
+      icon: mdi:fan
+    - type: entity
+      entity: sensor.prio_43086
+    - type: template
+      entity: sensor.nibe_solar_surplus
+      icon: mdi:solar-power
+      content: '{{ states(''sensor.nibe_solar_surplus'')|float(0)|round(2) }} kW'
+      icon_color: '{% if states(''sensor.nibe_solar_surplus'')|float(0) > 0.1 %}amber{% else %}disabled{% endif %}'
+      tap_action:
+        action: navigate
+        navigation_path: /dashboard-nibe/advanced
+  - type: entities
+    title: Control
+    show_header_toggle: false
+    entities:
+    - entity: input_number.nibe_setpoint
+      name: Indoor setpoint
+    - entity: input_boolean.nibe_write_enable
+      name: Write to pump (master)
+    - entity: input_boolean.nibe_hw_write_enable
+      name: Let smarts touch hot water
+    - entity: sensor.nibe_total_heat_offset
+      name: Heat offset → pump
+    - entity: sensor.nibe_heat_block_reason
+      name: Block reason
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## Inomhusreglering S1
+
+        Indoor compensation adjusts the heat curve by **(setpoint − room temp) × factor**, clamped ±10 °C. Room temp = `sensor.nibe_room_temp`
+        (see nibe_site.yaml).
+
+        '
+    - type: entities
+      title: Indoor compensation
+      show_header_toggle: false
+      entities:
+      - entity: input_boolean.nibe_indoor_enable
+        name: Enabled
+      - entity: sensor.nibe_room_temp
+        name: Indoor temperature
+        icon: mdi:home-thermometer
+      - entity: sensor.nibe_indoor_deviation
+        name: Deviation
+      - entity: sensor.nibe_indoor_offset
+        name: Curve adjustment
+      - type: divider
+      - entity: input_number.nibe_room_factor
+        name: Room sensor factor
+      - type: divider
+      - entity: sensor.nibe_total_heat_offset
+        name: Total heat offset → pump (reg 47011)
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Indoor regulation
+        show_states: true
+        colorize_states: true
+      graph_span: 24h
+      yaxis:
+      - min: -12
+        max: 32
+        decimals: 0
+        apex_config:
+          title:
+            text: °C
+      series:
+      - entity: sensor.nibe_room_temp
+        name: Indoor temp
+        stroke_width: 2
+        color: '#4a90e2'
+      - entity: input_number.nibe_setpoint
+        name: Setpoint
+        stroke_width: 2
+        curve: stepline
+        color: '#7ed321'
+      - entity: sensor.nibe_indoor_offset
+        name: Curve adjustment
+        stroke_width: 2
+        color: '#f5a623'
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## Elprisreglering (Price control)
+
+        Shifts heat + hot water by electricity price (Nordpool) using the NibePi arbitrage — cheap hours → warmer, expensive
+        hours → cooler.
+
+        '
+    - type: entities
+      title: Price control
+      show_header_toggle: false
+      entities:
+      - entity: input_boolean.nibe_price_enable
+        name: Enabled
+      - entity: sensor.nibe_price_level
+        name: Current level
+      - entity: sensor.nibe_price_current
+        name: Current price
+      - entity: sensor.nibe_price_heat_offset
+        name: Heat offset now
+      - entity: sensor.nibe_price_hw_mode
+        name: HW mode now (0=eco 1=norm 2=lux)
+    - type: history-graph
+      title: Price level & applied offset
+      hours_to_show: 24
+      entities:
+      - entity: sensor.nibe_price_level_num
+        name: Level (-2..+2)
+      - entity: sensor.nibe_price_heat_offset
+        name: Price offset
+      - entity: sensor.nibe_total_heat_offset
+        name: Total offset → pump
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## Hot water – automation
+
+        Automatic luxury boost on a big draw + hot-water priority.
+
+        '
+    - type: entities
+      title: Auto luxury (boost on big draw)
+      entities:
+      - entity: input_boolean.nibe_hw_autolux_enable
+        name: Enabled
+      - entity: input_number.nibe_hw_autolux_diff
+      - entity: input_number.nibe_hw_autolux_window
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## Ventilation (Fan)
+
+        Regulates exhaust fan speed to a target airflow, with low / degree-minute boost / CO2 boost modes.
+
+        '
+    - type: entities
+      title: Fan
+      entities:
+      - entity: input_boolean.nibe_fan_enable
+        name: Airflow regulation
+      - entity: input_number.nibe_fan_flow_normal
+        name: Airflow normal
+      - type: divider
+      - entity: sensor.nibe_fan_status
+        name: Status
+      - entity: sensor.hp_consumed_energy_due_to_ventilation_41846
+        name: Ventilation energy
+  - type: vertical-stack
+    cards:
+    - type: custom:mushroom-template-card
+      primary: Fan speed
+      secondary: '{{ states(''number.exhaust_fan_speed_normal_47265'') | round(0) }} %  ·  {{ states(''sensor.eb100_bs1_air_flow_40050'')
+        | round(0) }} m³/h'
+      icon: mdi:fan
+      icon_color: '{% set s = states(''number.exhaust_fan_speed_normal_47265'') | float(0) %} {{ ''blue'' if s > 0 else ''disabled''
+        }}'
+      entity: number.exhaust_fan_speed_normal_47265
+    - type: custom:apexcharts-card
+      header:
+        show: true
+        title: Ventilation
+        show_states: true
+        colorize_states: true
+      graph_span: 24h
+      yaxis:
+      - id: flow
+        decimals: 0
+        apex_config:
+          title:
+            text: m³/h
+      - id: pct
+        opposite: true
+        min: 0
+        max: 100
+        decimals: 0
+        apex_config:
+          title:
+            text: '%'
+      series:
+      - entity: sensor.eb100_bs1_air_flow_40050
+        name: Airflow (BS1)
+        yaxis_id: flow
+        stroke_width: 2
+      - entity: input_number.nibe_fan_flow_normal
+        name: Target airflow
+        yaxis_id: flow
+        stroke_width: 1
+        curve: stepline
+        opacity: 0.4
+      - entity: number.exhaust_fan_speed_normal_47265
+        name: Fan %
+        yaxis_id: pct
+        stroke_width: 2
+  icon: mdi:home-thermometer
+  path: home
+- title: Advanced
+  icon: mdi:tune
+  cards:
+  - type: markdown
+    content: '## Advanced / fine tuning
+
+
+      Rarely-changed settings. Values set here reset to the package `initial:` defaults on HA restart — edit the package YAML
+      to change them permanently. Everyday controls are on **Home**.'
+  - type: entities
+    title: Price control – fine tuning
+    entities:
+    - entity: input_number.nibe_price_min_spread
+    - entity: input_number.nibe_price_window
+    - entity: input_boolean.nibe_price_temp_guard
+      name: Indoor guard on expensive hours
+    - entity: input_number.nibe_price_temp_low
+      name: Allowed indoor drop
+  - type: entities
+    title: Heat offset per level (°C)
+    entities:
+    - entity: input_number.nibe_price_heat_very_cheap
+      name: Very cheap
+    - entity: input_number.nibe_price_heat_cheap
+      name: Cheap
+    - entity: input_number.nibe_price_heat_normal
+      name: Normal
+    - entity: input_number.nibe_price_heat_expensive
+      name: Expensive
+    - entity: input_number.nibe_price_heat_very_expensive
+      name: Very expensive
+  - type: entities
+    title: Hot water mode per level
+    entities:
+    - entity: input_select.nibe_price_hw_very_cheap
+      name: Very cheap
+    - entity: input_select.nibe_price_hw_cheap
+      name: Cheap
+    - entity: input_select.nibe_price_hw_normal
+      name: Normal
+    - entity: input_select.nibe_price_hw_expensive
+      name: Expensive
+    - entity: input_select.nibe_price_hw_very_expensive
+      name: Very expensive
+  - type: entities
+    title: Hot water priority
+    entities:
+    - entity: input_boolean.nibe_hw_priority_enable
+      name: Enabled
+    - entity: input_number.nibe_hw_priority_start
+    - entity: input_number.nibe_hw_priority_stop
+    - type: divider
+    - entity: sensor.nibe_hw_status
+      name: Status
+    - entity: sensor.hp_consumed_energy_due_to_hot_water_41848
+      name: Hot water energy
+  - type: entities
+    title: Low mode (quiet at low compressor freq)
+    entities:
+    - entity: input_boolean.nibe_fan_low_enable
+      name: Enabled
+    - entity: input_number.nibe_fan_flow_low
+    - entity: input_number.nibe_fan_low_cpr_freq
+  - type: entities
+    title: Degree-minute boost
+    entities:
+    - entity: input_boolean.nibe_fan_dmboost_enable
+      name: Enabled
+    - entity: input_number.nibe_fan_flow_dmboost
+    - entity: input_number.nibe_fan_dmboost_dm
+  - type: entities
+    title: CO2 boost
+    entities:
+    - entity: input_boolean.nibe_fan_co2_enable
+      name: Enabled
+    - entity: input_number.nibe_fan_flow_high
+    - entity: input_number.nibe_fan_co2_high
+    - entity: input_number.nibe_fan_co2_low
+  - type: entities
+    title: Indoor – overshoot protection
+    entities:
+    - entity: input_boolean.nibe_indoor_block_enable
+      name: Outdoor heat block
+    - entity: input_number.nibe_indoor_block_outdoor
+      name: Block above outdoor temp
+    - type: divider
+    - entity: input_boolean.nibe_indoor_stop_enable
+      name: Stop heat on overshoot
+    - entity: input_number.nibe_indoor_stop_diff
+      name: Stop above setpoint by
+    - type: divider
+    - entity: input_boolean.nibe_indoor_dmreset_enable
+      name: Degree-minute reset
+    - entity: input_number.nibe_indoor_dmreset_diff
+      name: Reset above setpoint by
+    - type: divider
+    - entity: sensor.nibe_heat_block_reason
+      name: Block reason
+  - type: entities
+    title: Frequency regulation (at high price)
+    entities:
+    - entity: input_boolean.nibe_freq_enable
+      name: Enabled
+    - entity: input_number.nibe_freq_high_level
+      name: Regulate at price level (1=exp 2=very)
+    - type: divider
+    - entity: input_number.nibe_freq_min_temp
+      name: Min outdoor temp
+    - entity: input_number.nibe_freq_max_freq
+      name: Max frequency
+    - entity: input_number.nibe_freq_max_temp
+      name: Max outdoor temp
+    - entity: input_number.nibe_freq_min_freq
+      name: Min frequency
+    - type: divider
+    - entity: input_number.nibe_freq_normal_max
+      name: Normal max (restore)
+    - entity: input_boolean.nibe_freq_prevent_aux
+      name: Prevent aux heat at high price
+    - entity: sensor.nibe_freq_status
+      name: Status
+  - type: entities
+    title: Solar surplus
+    entities:
+    - entity: input_boolean.nibe_hw_write_enable
+      name: Let smarts touch hot water (master)
+    - entity: input_boolean.nibe_solar_enable
+      name: Enabled (master)
+    - entity: sensor.nibe_solar_surplus
+      name: Export surplus now
+    - entity: sensor.nibe_solar_active
+      name: Boost active
+    - entity: sensor.nibe_solar_forecast_remaining
+      name: Sun left today
+    - type: divider
+    - entity: input_number.nibe_solar_export_on
+      name: Activate above export
+    - entity: input_number.nibe_solar_export_off
+      name: Deactivate below export
+    - entity: input_number.nibe_solar_release_min
+      name: Release delay (anti-flap)
+    - entity: input_number.nibe_solar_forecast_min
+      name: Min sun ahead to store
+    - type: divider
+    - entity: input_boolean.nibe_solar_price_gate_enable
+      name: Export at high price (don't store)
+    - entity: input_number.nibe_solar_price_max_level
+      name: Export above price level
+    - entity: input_number.nibe_solar_export_price
+      name: Export above spot price
+    - entity: sensor.nibe_price_level
+      name: Price level now
+    - type: divider
+    - entity: input_boolean.nibe_solar_hw_enable
+      name: → Hot water (Luxury)
+    - entity: input_boolean.nibe_solar_heat_enable
+      name: → Space heat
+    - entity: input_number.nibe_solar_heat_max
+      name: Space-heat boost
+    - entity: input_number.nibe_solar_comfort_ceiling
+      name: Comfort ceiling
+    - entity: input_number.nibe_solar_hw_full_temp
+      name: Stop storing above BT7
+    - type: divider
+    - entity: input_boolean.nibe_solar_reserve_enable
+      name: Reserve HW room (morning)
+    - entity: sensor.nibe_solar_hw_reserve
+      name: Reserving now
+    - entity: input_number.nibe_solar_reserve_forecast_min
+      name: Reserve if sun ahead exceeds
+    - entity: input_number.nibe_solar_reserve_start_hour
+      name: Window start (hour)
+    - entity: input_number.nibe_solar_reserve_end_hour
+      name: Window end (hour)
+    - entity: input_number.nibe_solar_reserve_floor
+      name: HW floor (BT7 min)
+    - entity: input_number.nibe_solar_legionella_temp
+      name: Legionella-run detect (BT7)
+    - type: divider
+    - entity: sensor.nibe_solar_heat_offset
+      name: Applied solar heat offset
+    - entity: sensor.nibe_hw_mode_target
+      name: HW target (price ⊕ solar)
+  path: advanced

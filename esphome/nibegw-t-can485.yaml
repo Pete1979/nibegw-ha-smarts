@@ -1,0 +1,106 @@
+# NibeGW gateway for the LilyGo T-CAN485  ->  Home Assistant "Nibe Heat Pump" integration
+#
+# Board pins/enable lines come from the upstream example:
+#   https://github.com/elupus/esphome-nibe/blob/master/examples/lilygo-t-can485.yaml
+# The T-CAN485 uses a MAX13487 auto-direction transceiver, so NibeGW needs no dir_pin.
+#
+# Wiring to the heat pump's RS485 accessory terminal (see docs/hardware.md):
+#   pump A / B   -> board RS485 A / B
+#   pump +12V    -> board power + (accepts 5-12 V DC)
+#   pump GND     -> board power -
+#   board RS485 GND  -> jumper to board power -   (the RS485 side is isolated; without
+#                                                  this bond you only get garbage bytes)
+# Then enable the accessory/Modbus input in the pump's service menu.
+# NibeGW emulates a MODBUS40 accessory and ACKs telegrams so the pump doesn't alarm.
+#
+# Copy secrets.example.yaml to secrets.yaml and fill it in before flashing.
+
+esphome:
+  name: nibegw
+  comment: Nibe RS485 <-> Home Assistant gateway
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+  level: WARN
+
+api:
+  reboot_timeout: 0s   # never reboot just because HA was briefly unreachable
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # UDP packets must not be missed -> keep the radio awake.
+  power_save_mode: none
+  # HA sends read/write requests TO this device, so it needs a stable address
+  # (static IP here, or a DHCP reservation on your router).
+  manual_ip:
+    static_ip: !secret nibegw_static_ip
+    gateway: !secret nibegw_gateway
+    subnet: 255.255.255.0
+
+external_components:
+  - source: github://elupus/esphome-nibe
+    components: [nibegw]
+
+# --- LilyGo T-CAN485 board enable lines (do not change) ---------------------
+output:
+  - platform: gpio
+    id: ENABLE_PIN            # power-enable the transceiver
+    pin:
+      number: GPIO19
+      inverted: true
+  - platform: gpio
+    id: SE_PIN                # enable auto-direction on the MAX13487
+    pin:
+      number: GPIO17
+      inverted: true
+  - platform: gpio
+    id: ENABLE_5V_PIN         # enable the 5V rail for the RS485 chip
+    pin:
+      number: GPIO16
+      inverted: true
+
+# --- UART to the heat pump (Nibe protocol is 9600 8N1) ---------------------
+uart:
+  rx_pin: GPIO21
+  tx_pin: GPIO22
+  baud_rate: 9600
+
+# --- NibeGW ----------------------------------------------------------------
+nibegw:
+  udp:
+    # Accept read/write requests only from Home Assistant.
+    source:
+      - !secret ha_ip
+    # Also push telegrams to HA so data flows even before HA polls.
+    target:
+      - ip: !secret ha_ip
+        port: 9999
+    # read_port: 9999    # defaults are fine; uncomment only to change
+    # write_port: 10000
+
+  acknowledge:
+    - MODBUS40
+
+  # Identify as a MODBUS40 accessory when the pump asks.
+  constants:
+    - address: MODBUS40
+      token: ACCESSORY
+      data: [0x0A, 0x00, 0x01]
+
+# --- convenience buttons in HA ---------------------------------------------
+button:
+  - platform: restart
+    name: Nibegw Restart
+  - platform: safe_mode
+    name: Nibegw Safe Mode Boot

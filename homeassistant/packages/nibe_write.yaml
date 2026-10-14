@@ -1,0 +1,124 @@
+# Write path — the ONLY place computed setpoints are pushed into the heat pump.
+#
+#   sensor.nibe_total_heat_offset (indoor + price + solar) -> number.heat_offset_s1_47011
+#   sensor.nibe_hw_mode_target    (0/1/2)                  -> select.hot_water_comfort_mode_47041
+#
+# Master guard: input_boolean.nibe_write_enable. While it is off, every feature
+# still computes its sensors (so you can watch what it WOULD do) but nothing is
+# written to the pump. The pyscript modules honour the same switch.
+#
+# Hot water has its own extra guard, nibe_hw_write_enable (default off): forcing
+# comfort modes on a tank that is already hot can make the compressor trip after
+# 3-5 min and retry, which ends in a "short operating times" alarm.
+
+input_boolean:
+  nibe_write_enable:
+    name: Nibe write to pump (master)
+    icon: mdi:pencil-lock
+  nibe_hw_write_enable:
+    name: Nibe let smarts touch hot water
+    icon: mdi:water-pump
+    initial: false
+
+input_number:
+  nibe_hw_mode_min_dwell:
+    name: Min minutes between HW-mode changes (anti short-cycle)
+    min: 0
+    max: 120
+    step: 5
+    initial: 20
+    unit_of_measurement: "min"
+    mode: box
+    icon: mdi:timer-lock-outline
+
+template:
+  - sensor:
+      # Final HW comfort target = the more generous of the price and solar
+      # requests (0=Economy 1=Normal 2=Luxury). The morning solar reserve forces
+      # Economy so grid power doesn't fill the tank before the sun arrives.
+      - name: Nibe HW mode target
+        unique_id: nibe_hw_mode_target
+        state: >
+          {% set price = states('sensor.nibe_price_hw_mode') | int(0)
+             if is_state('input_boolean.nibe_price_enable','on') else 0 %}
+          {% set solar = states('sensor.nibe_solar_hw_mode') | int(0)
+             if is_state('input_boolean.nibe_solar_enable','on') else 0 %}
+          {% set base = [price, solar] | max %}
+          {% if is_state('sensor.nibe_solar_hw_reserve','on') %}0{% else %}{{ base }}{% endif %}
+
+automation:
+  - id: nibe_write_heat_offset
+    alias: "Nibe - write heat offset to pump"
+    trigger:
+      - platform: state
+        entity_id: sensor.nibe_total_heat_offset
+      - platform: time_pattern
+        minutes: "/15"
+    condition:
+      - condition: state
+        entity_id: input_boolean.nibe_write_enable
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ has_value('sensor.nibe_total_heat_offset')
+             and has_value('number.heat_offset_s1_47011') }}
+    action:
+      - variables:
+          target: "{{ states('sensor.nibe_total_heat_offset') | int(0) }}"
+      # Only write when the value actually differs (don't spam the RS485 bus).
+      - condition: template
+        value_template: "{{ target != states('number.heat_offset_s1_47011') | int(-999) }}"
+      - service: number.set_value
+        target:
+          entity_id: number.heat_offset_s1_47011
+        data:
+          value: "{{ target }}"
+      - service: logbook.log
+        data:
+          name: Nibe
+          message: "heat offset -> {{ target }} °C"
+    mode: single
+
+  - id: nibe_write_hw_mode
+    alias: "Nibe - write hot water mode to pump"
+    trigger:
+      - platform: state
+        entity_id: sensor.nibe_hw_mode_target
+      - platform: time_pattern
+        minutes: "/15"
+    condition:
+      - condition: state
+        entity_id: input_boolean.nibe_write_enable
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.nibe_hw_write_enable
+        state: "on"
+      - condition: template
+        value_template: >
+          {{ is_state('input_boolean.nibe_price_enable','on')
+             or is_state('input_boolean.nibe_solar_enable','on')
+             or is_state('input_boolean.nibe_solar_reserve_enable','on') }}
+      - condition: template
+        value_template: "{{ has_value('sensor.nibe_hw_mode_target') }}"
+    action:
+      - variables:
+          idx: "{{ states('sensor.nibe_hw_mode_target') | int(0) }}"
+          want: "{{ ['ECONOMY', 'NORMAL', 'LUXURY'][idx] if idx in [0, 1, 2] else 'ECONOMY' }}"
+      - condition: template
+        value_template: "{{ want != states('select.hot_water_comfort_mode_47041') }}"
+      # Anti short-cycle: toggling HW demand starts/stops the compressor.
+      - condition: template
+        value_template: >
+          {{ states.select.hot_water_comfort_mode_47041 is not none
+             and (now() - states.select.hot_water_comfort_mode_47041.last_changed).total_seconds()
+                 >= states('input_number.nibe_hw_mode_min_dwell') | int(20) * 60 }}
+      - service: select.select_option
+        target:
+          entity_id: select.hot_water_comfort_mode_47041
+        data:
+          option: "{{ want }}"
+      - service: logbook.log
+        data:
+          name: Nibe
+          message: "hot water mode -> {{ want }}"
+    mode: single

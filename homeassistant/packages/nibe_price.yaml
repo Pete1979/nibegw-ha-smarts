@@ -1,0 +1,114 @@
+# Price control (NibePi "Elprisreglering").
+# The arbitrage classifier runs in pyscript/nibe_price.py and reads these helpers.
+# Each hour gets a level (VERY_CHEAP..VERY_EXPENSIVE); the level maps to a
+# heat-curve offset and a hot-water comfort mode below.
+# Prices are handled in öre (1/100 of your currency per kWh).
+
+input_boolean:
+  nibe_price_enable:
+    name: Nibe price control
+    icon: mdi:cash-clock
+    initial: true
+  nibe_price_temp_guard:
+    name: Nibe price indoor guard
+    icon: mdi:home-thermometer
+    initial: true
+
+input_number:
+  nibe_price_min_spread:
+    name: Price min spread
+    min: 0
+    max: 200
+    step: 5
+    initial: 35
+    unit_of_measurement: "öre"
+    mode: box
+    icon: mdi:arrow-expand-vertical
+  nibe_price_window:
+    name: Price look-ahead window
+    min: 1
+    max: 24
+    step: 1
+    initial: 12
+    unit_of_measurement: "h"
+    mode: box
+    icon: mdi:clock-outline
+  nibe_price_temp_low:
+    name: Price indoor allowed drop
+    min: -5
+    max: 0
+    step: 0.5
+    initial: -1.5
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-low
+
+  # heat curve offset (°C) per price level -> reg 47011
+  nibe_price_heat_very_cheap:
+    name: "Heat offset: very cheap"
+    min: -10
+    max: 10
+    step: 1
+    initial: 2
+    unit_of_measurement: "°C"
+    mode: box
+  nibe_price_heat_cheap:
+    name: "Heat offset: cheap"
+    min: -10
+    max: 10
+    step: 1
+    initial: 1
+    unit_of_measurement: "°C"
+    mode: box
+  nibe_price_heat_normal:
+    name: "Heat offset: normal"
+    min: -10
+    max: 10
+    step: 1
+    initial: 0
+    unit_of_measurement: "°C"
+    mode: box
+  nibe_price_heat_expensive:
+    name: "Heat offset: expensive"
+    min: -10
+    max: 10
+    step: 1
+    initial: -2
+    unit_of_measurement: "°C"
+    mode: box
+  nibe_price_heat_very_expensive:
+    name: "Heat offset: very expensive"
+    min: -10
+    max: 10
+    step: 1
+    initial: -4
+    unit_of_measurement: "°C"
+    mode: box
+
+input_select:
+  # hot-water comfort mode per price level -> reg 47041
+  nibe_price_hw_very_cheap:
+    name: "HW mode: very cheap"
+    options: [Economy, Normal, Luxury]
+    initial: Normal
+    icon: mdi:water-thermometer
+  nibe_price_hw_cheap:
+    name: "HW mode: cheap"
+    options: [Economy, Normal, Luxury]
+    initial: Normal
+    icon: mdi:water-thermometer
+  nibe_price_hw_normal:
+    name: "HW mode: normal"
+    options: [Economy, Normal, Luxury]
+    initial: Normal
+    icon: mdi:water-thermometer
+  nibe_price_hw_expensive:
+    name: "HW mode: expensive"
+    options: [Economy, Normal, Luxury]
+    initial: Economy
+    icon: mdi:water-thermometer
+  nibe_price_hw_very_expensive:
+    name: "HW mode: very expensive"
+    options: [Economy, Normal, Luxury]
+    initial: Economy
+    icon: mdi:water-thermometer

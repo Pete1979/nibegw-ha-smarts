@@ -1,0 +1,51 @@
+# Hot water (NibePi hotwaterPlugin).
+# Auto-luxury on a big draw + hot-water priority, both driving the pump's
+# Temporary Lux register (select.temporary_lux_48132). Logic in
+# pyscript/nibe_hotwater.py; writes need nibe_write_enable AND nibe_hw_write_enable.
+
+input_boolean:
+  nibe_hw_autolux_enable:
+    name: Nibe auto hot-water luxury
+    icon: mdi:water-boiler
+    initial: false
+  nibe_hw_priority_enable:
+    name: Nibe hot-water priority
+    icon: mdi:water-boiler-alert
+
+input_number:
+  nibe_hw_autolux_diff:
+    name: Auto-lux trigger drop
+    min: 1
+    max: 30
+    step: 0.5
+    initial: 20
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-minus
+  nibe_hw_autolux_window:
+    name: Auto-lux detection window
+    min: 1
+    max: 30
+    step: 1
+    initial: 10
+    unit_of_measurement: "min"
+    mode: box
+    icon: mdi:clock-outline
+  nibe_hw_priority_start:
+    name: Priority start (BT7 below)
+    min: 30
+    max: 60
+    step: 1
+    initial: 45
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-chevron-down
+  nibe_hw_priority_stop:
+    name: Priority stop (BT7 above)
+    min: 35
+    max: 65
+    step: 1
+    initial: 48
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-chevron-up

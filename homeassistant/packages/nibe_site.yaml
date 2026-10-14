@@ -1,0 +1,75 @@
+# Site mapping — the ONLY package you need to edit.
+#
+# Every other package and pyscript module reads these neutral entities, so you
+# point them at your own sensors here once. Replace the entity id in BOTH the
+# `state` and `availability` lines of each sensor.
+#
+# Heat pump entities (sensor.bt1_..., number.heat_offset_s1_47011, ...) come
+# straight from HA's built-in Nibe Heat Pump integration and are referenced
+# directly; see docs/entities.md if your model names them differently.
+
+input_number:
+  # Indoor setpoint the smarts regulate towards (your "desired room temperature").
+  nibe_setpoint:
+    name: Nibe indoor setpoint
+    min: 15
+    max: 26
+    step: 0.1
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:home-thermometer-outline
+
+template:
+  - sensor:
+      # Room temperature used by indoor compensation / guards.
+      # Default = the pump's own BT50 room sensor. Better: a mean of several
+      # room sensors (e.g. a `min_max` sensor with type: mean) — point it here.
+      - name: Nibe room temp
+        unique_id: nibe_room_temp
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state_class: measurement
+        state: "{{ states('sensor.bt50_room_temp_s1_40033') }}"
+        availability: "{{ has_value('sensor.bt50_room_temp_s1_40033') }}"
+
+      # Current spot price from the HACS Nordpool integration
+      # (https://github.com/custom-components/nordpool), in currency/kWh.
+      # The `source` attribute must name the same Nordpool sensor: the price
+      # optimizer reads its raw_today / raw_tomorrow attributes.
+      - name: Nibe spot price
+        unique_id: nibe_spot_price
+        unit_of_measurement: "SEK/kWh"
+        state: "{{ states('sensor.nordpool_kwh_se4_sek_2_10_025') }}"
+        availability: "{{ has_value('sensor.nordpool_kwh_se4_sek_2_10_025') }}"
+        attributes:
+          source: sensor.nordpool_kwh_se4_sek_2_10_025
+
+      # OPTIONAL (solar surplus feature). Net grid power in kW,
+      # NEGATIVE = exporting. A P1/HAN meter reader is ideal. If yours reports
+      # import and export as two positive sensors, use: import - export.
+      # Leave the placeholder if you have no solar; the solar logic stays idle.
+      - name: Nibe grid power
+        unique_id: nibe_grid_power
+        unit_of_measurement: "kW"
+        device_class: power
+        state_class: measurement
+        state: "{{ states('sensor.REPLACE_ME_net_grid_power') }}"
+        availability: "{{ has_value('sensor.REPLACE_ME_net_grid_power') }}"
+
+      # OPTIONAL (solar surplus feature). kWh of solar production still expected
+      # today — e.g. Forecast.Solar's `energy_production_today_remaining`.
+      - name: Nibe solar forecast remaining
+        unique_id: nibe_solar_forecast_remaining
+        unit_of_measurement: "kWh"
+        device_class: energy
+        state: "{{ states('sensor.energy_production_today_remaining') }}"
+        availability: "{{ has_value('sensor.energy_production_today_remaining') }}"
+
+      # OPTIONAL (fan CO2 boost). Indoor CO2 in ppm.
+      - name: Nibe CO2
+        unique_id: nibe_co2
+        unit_of_measurement: "ppm"
+        device_class: carbon_dioxide
+        state_class: measurement
+        state: "{{ states('sensor.REPLACE_ME_co2') }}"
+        availability: "{{ has_value('sensor.REPLACE_ME_co2') }}"

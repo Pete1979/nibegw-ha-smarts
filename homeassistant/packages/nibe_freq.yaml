@@ -1,0 +1,76 @@
+# Frequency regulation (NibePi "Frekvensreglering") — price-based compressor
+# frequency limiting. Off by default (higher impact than a curve offset).
+#
+# At a high electricity price, instead of only cutting the heat curve, cap the
+# compressor MAX frequency (reg 47104) on an outdoor-temperature curve so the
+# pump keeps running efficiently at a lower speed. Optionally block the
+# immersion/additional heater at high price. The logic lives in
+# pyscript/nibe_freq.py; every write is gated by input_boolean.nibe_write_enable
+# AND input_boolean.nibe_freq_enable.
+#
+# Curve: at/below "min temp" outdoor -> "max freq" allowed; at/above "max temp"
+# outdoor -> "min freq" allowed; linear in between. (NibePi defaults: 10/70 and
+# 10/36 = a step at 10 °C.) normal_max (120 Hz) is restored when price is normal.
+
+input_boolean:
+  nibe_freq_enable:
+    name: Nibe frequency regulation
+    icon: mdi:sine-wave
+  nibe_freq_prevent_aux:
+    name: Nibe prevent aux heat at high price
+    icon: mdi:heating-coil
+
+input_number:
+  nibe_freq_min_temp:
+    name: Freq curve - min outdoor temp
+    min: -20
+    max: 20
+    step: 0.5
+    initial: 10
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-low
+  nibe_freq_max_freq:
+    name: Freq curve - max frequency
+    min: 20
+    max: 120
+    step: 1
+    initial: 70
+    unit_of_measurement: "Hz"
+    mode: box
+    icon: mdi:sine-wave
+  nibe_freq_max_temp:
+    name: Freq curve - max outdoor temp
+    min: -20
+    max: 20
+    step: 0.5
+    initial: 10
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-high
+  nibe_freq_min_freq:
+    name: Freq curve - min frequency
+    min: 20
+    max: 120
+    step: 1
+    initial: 36
+    unit_of_measurement: "Hz"
+    mode: box
+    icon: mdi:sine-wave
+  nibe_freq_normal_max:
+    name: Freq normal max (restore)
+    min: 20
+    max: 120
+    step: 1
+    initial: 120
+    unit_of_measurement: "Hz"
+    mode: box
+    icon: mdi:speedometer
+  nibe_freq_high_level:
+    name: Regulate at price level (1=exp 2=very exp)
+    min: 1
+    max: 2
+    step: 1
+    initial: 1
+    mode: box
+    icon: mdi:cash-clock

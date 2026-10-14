@@ -1,0 +1,23 @@
+{
+  "area": "SE4",
+  "time_window_hours": 12,
+  "min_spread": 35,
+  "heat_enable": true,
+  "heat_offset": {
+    "VERY_CHEAP": 2,
+    "CHEAP": 1,
+    "NORMAL": 0,
+    "EXPENSIVE": -2,
+    "VERY_EXPENSIVE": -4
+  },
+  "hotwater_enable": true,
+  "hotwater_mode": {
+    "VERY_CHEAP": 1,
+    "CHEAP": 1,
+    "NORMAL": 0,
+    "EXPENSIVE": 0,
+    "VERY_EXPENSIVE": 0
+  },
+  "enable_temp_guard": true,
+  "temp_low": -1.5
+}

@@ -1,0 +1,160 @@
+# Indoor compensation (NibePi "Inomhusreglering S1").
+#
+#   indoor curve offset = (setpoint - room temp) * factor,  clamped to +/-10 °C
+#   e.g. (21.5 - 24.95) * 2.6 = -8.97   -> room too warm, cut heat
+#
+# Plus overshoot protection:
+#   - outdoor block: above an outdoor temp, push the curve to -10 (no heating)
+#   - stop heat:     room above setpoint + diff -> curve to -10
+#   - DM reset:      room above setpoint + diff -> reset degree minutes so the
+#                    compressor stops chasing an accumulated heat demand
+#
+# sensor.nibe_total_heat_offset = indoor + price + solar (clamped) is what the
+# write package pushes to register 47011.
+
+input_boolean:
+  nibe_indoor_enable:
+    name: Nibe indoor compensation
+    icon: mdi:home-thermometer
+    initial: true
+  nibe_indoor_block_enable:
+    name: Nibe outdoor heat block
+    icon: mdi:sun-thermometer
+    initial: true
+  nibe_indoor_stop_enable:
+    name: Nibe stop heat on overshoot
+    icon: mdi:radiator-off
+    initial: true
+  nibe_indoor_dmreset_enable:
+    name: Nibe degree-minute reset
+    icon: mdi:restart
+    initial: true
+
+input_number:
+  nibe_room_factor:
+    name: Room sensor factor
+    min: 0
+    max: 6
+    step: 0.1
+    initial: 2.6
+    mode: box
+    icon: mdi:close-octagon-outline
+  nibe_indoor_block_outdoor:
+    name: Outdoor block temp
+    min: 0
+    max: 30
+    step: 0.5
+    initial: 15
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:sun-thermometer
+  nibe_indoor_stop_diff:
+    name: Stop heat above setpoint by
+    min: 0
+    max: 5
+    step: 0.1
+    initial: 1
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-chevron-up
+  nibe_indoor_dmreset_diff:
+    name: DM reset above setpoint by
+    min: 0
+    max: 5
+    step: 0.1
+    initial: 1
+    unit_of_measurement: "°C"
+    mode: box
+    icon: mdi:thermometer-chevron-up
+
+template:
+  - sensor:
+      - name: Nibe indoor offset
+        unique_id: nibe_indoor_offset
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:tune-vertical-variant
+        availability: "{{ has_value('sensor.nibe_room_temp') }}"
+        state: >
+          {% if is_state('input_boolean.nibe_indoor_enable', 'on') %}
+            {% set sp  = states('input_number.nibe_setpoint') | float(21) %}
+            {% set act = states('sensor.nibe_room_temp') | float(sp) %}
+            {% set f   = states('input_number.nibe_room_factor') | float(0) %}
+            {% set off = (sp - act) * f %}
+            {{ [[off, 10] | min, -10] | max | round(2) }}
+          {% else %}
+            0
+          {% endif %}
+
+      - name: Nibe indoor deviation
+        unique_id: nibe_indoor_deviation
+        unit_of_measurement: "%"
+        icon: mdi:percent-outline
+        availability: "{{ has_value('sensor.nibe_room_temp') }}"
+        state: >
+          {% set sp  = states('input_number.nibe_setpoint') | float(21) %}
+          {% set act = states('sensor.nibe_room_temp') | float(sp) %}
+          {% if sp > 0 %}{{ ((act - sp) / sp * 100) | round(0) }}{% else %}0{% endif %}
+
+      - name: Nibe total heat offset
+        unique_id: nibe_total_heat_offset
+        unit_of_measurement: "°C"
+        state_class: measurement
+        icon: mdi:sigma
+        state: >
+          {% set indoor = states('sensor.nibe_indoor_offset') | float(0) %}
+          {% set price  = states('sensor.nibe_price_heat_offset') | float(0) %}
+          {% set solar  = states('sensor.nibe_solar_heat_offset') | float(0) %}
+          {% set base = [[indoor + price + solar, 10] | min, -10] | max %}
+          {% set sp   = states('input_number.nibe_setpoint') | float(21) %}
+          {% set room = states('sensor.nibe_room_temp') | float(sp) %}
+          {% set out  = states('sensor.bt1_outdoor_temperature_40004') | float(-99) %}
+          {% set block = is_state('input_boolean.nibe_indoor_block_enable','on') and out >= (states('input_number.nibe_indoor_block_outdoor')|float(15)) %}
+          {% set stop  = is_state('input_boolean.nibe_indoor_stop_enable','on') and room >= sp + (states('input_number.nibe_indoor_stop_diff')|float(1)) %}
+          {{ -10 if (block or stop) else (base | round(0)) }}
+
+      - name: Nibe heat block reason
+        unique_id: nibe_heat_block_reason
+        icon: mdi:information-outline
+        availability: "{{ has_value('sensor.nibe_room_temp') }}"
+        state: >
+          {% set sp   = states('input_number.nibe_setpoint') | float(21) %}
+          {% set room = states('sensor.nibe_room_temp') | float(sp) %}
+          {% set out  = states('sensor.bt1_outdoor_temperature_40004') | float(-99) %}
+          {% if is_state('input_boolean.nibe_indoor_block_enable','on') and out >= (states('input_number.nibe_indoor_block_outdoor')|float(15)) %}outdoor block
+          {% elif is_state('input_boolean.nibe_indoor_stop_enable','on') and room >= sp + (states('input_number.nibe_indoor_stop_diff')|float(1)) %}indoor overshoot
+          {% else %}none{% endif %}
+
+automation:
+  # Only writes when DM is actually negative (= accumulated heat demand).
+  - id: nibe_indoor_dm_reset
+    alias: "Nibe - degree-minute reset on indoor overshoot"
+    trigger:
+      - platform: state
+        entity_id: sensor.nibe_room_temp
+      - platform: time_pattern
+        minutes: "/15"
+    condition:
+      - condition: state
+        entity_id: input_boolean.nibe_indoor_dmreset_enable
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.nibe_write_enable
+        state: "on"
+      - condition: template
+        value_template: >
+          {% set sp = states('input_number.nibe_setpoint')|float(21) %}
+          {% set room = states('sensor.nibe_room_temp')|float(sp) %}
+          {{ room >= sp + (states('input_number.nibe_indoor_dmreset_diff')|float(1))
+             and (states('number.degree_minutes_16_bit_43005')|float(0)) < 0 }}
+    action:
+      - service: number.set_value
+        target:
+          entity_id: number.degree_minutes_16_bit_43005
+        data:
+          value: 1
+      - service: logbook.log
+        data:
+          name: Nibe
+          message: "degree minutes reset (indoor overshoot)"
+    mode: single
