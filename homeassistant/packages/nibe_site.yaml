@@ -39,10 +39,10 @@ template:
       - name: Nibe spot price
         unique_id: nibe_spot_price
         unit_of_measurement: "SEK/kWh"
-        state: "{{ states('sensor.nordpool_kwh_se4_sek_2_10_025') }}"
-        availability: "{{ has_value('sensor.nordpool_kwh_se4_sek_2_10_025') }}"
+        state: "{{ states('sensor.nordpool_kwh_se4_sek_3_10_025') }}"
+        availability: "{{ has_value('sensor.nordpool_kwh_se4_sek_3_10_025') }}"
         attributes:
-          source: sensor.nordpool_kwh_se4_sek_2_10_025
+          source: sensor.nordpool_kwh_se4_sek_3_10_025
 
       # OPTIONAL (solar surplus feature). Net grid power in kW,
       # NEGATIVE = exporting. A P1/HAN meter reader is ideal. If yours reports
